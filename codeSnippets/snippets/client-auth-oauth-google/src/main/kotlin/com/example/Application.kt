@@ -46,16 +46,18 @@ fun main() {
                         bearerTokenStorage.last()
                     }
                     refreshTokens {
-                        val refreshTokenInfo: TokenInfo = client.submitForm(
-                            url = "https://accounts.google.com/o/oauth2/token",
-                            formParameters = parameters {
-                                append("grant_type", "refresh_token")
-                                append("client_id", System.getenv("GOOGLE_CLIENT_ID"))
-                                append("refresh_token", oldTokens?.refreshToken ?: "")
-                            }
-                        ) { markAsRefreshTokenRequest() }.body()
-                        bearerTokenStorage.add(BearerTokens(refreshTokenInfo.accessToken, oldTokens?.refreshToken!!))
-                        bearerTokenStorage.last()
+                        throw RuntimeException("failed to refresh tokens")
+//                        val refreshTokenInfo: TokenInfo = client.submitForm(
+//                            url = "https://accounts.google.com/o/oauth2/token",
+//                            formParameters = parameters {
+//                                append("grant_type", "refresh_token")
+//                                append("client_id", System.getenv("GOOGLE_CLIENT_ID"))
+//                                append("client_secret", System.getenv("GOOGLE_CLIENT_SECRET"))
+//                                append("refresh_token", oldTokens?.refreshToken ?: "")
+//                            }
+//                        ) { markAsRefreshTokenRequest() }.body()
+//                        bearerTokenStorage.add(BearerTokens(refreshTokenInfo.accessToken, oldTokens?.refreshToken!!))
+//                        bearerTokenStorage.last()
                     }
                     sendWithoutRequest { request ->
                         request.url.host == "www.googleapis.com"
@@ -77,18 +79,20 @@ fun main() {
         ).body()
         bearerTokenStorage.add(BearerTokens(tokenInfo.accessToken, tokenInfo.refreshToken!!))
 
+        // Force token refresh
+        bearerTokenStorage.add(BearerTokens("invalid-access-token", tokenInfo.refreshToken!!))
+
         // Step 5: Make a request to the protected API
         while (true) {
             println("Make a request? Type 'yes' and press Enter to proceed.")
             when (readln()) {
                 "yes" -> {
-                    val response: HttpResponse = client.get("https://www.googleapis.com/oauth2/v2/userinfo")
                     try {
+                        val response: HttpResponse = client.get("https://www.googleapis.com/oauth2/v2/userinfo")
                         val userInfo: UserInfo = response.body()
                         println("Hello, ${userInfo.name}!")
                     } catch (e: Exception) {
-                        val errorInfo: ErrorInfo = response.body()
-                        println(errorInfo.error.message)
+                        e.printStackTrace()
                     }
                 }
                 else -> return@runBlocking
